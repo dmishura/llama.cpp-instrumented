@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <exception>
+#include <atomic>
 
 static std::terminate_handler previous_terminate_handler;
 

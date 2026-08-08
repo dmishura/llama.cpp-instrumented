@@ -1721,6 +1721,10 @@ static void ggml_compute_forward(struct ggml_compute_params * params, struct ggm
     }
 
     switch (tensor->op) {
+        case GGML_OP_PROFILER_MARKER:
+            {
+                ggml_compute_forward_profiler_marker(params, tensor);
+            } break;
         case GGML_OP_DUP:
             {
                 ggml_compute_forward_dup(params, tensor);
@@ -2250,6 +2254,7 @@ static int ggml_get_n_tasks(struct ggml_tensor * node, int n_threads) {
         case GGML_OP_SUM_ROWS:
         case GGML_OP_MEAN:
         case GGML_OP_ARGMAX:
+        case GGML_OP_PROFILER_MARKER:
             {
                 n_tasks = 1;
             } break;
@@ -3122,8 +3127,12 @@ static thread_ret_t ggml_graph_compute_thread(void * data) {
 #else
     GGML_PRINT_DEBUG("thread #%d compute-done cplan %p last-graph %d\n", state->ith, (const void *)cplan, state->last_graph);
 #endif
+    ggml_cpu_profiler_close_last_region();
+    ggml_cpu_profiler_open_region("Barrier");
 
     ggml_barrier(state->threadpool);
+
+    ggml_cpu_profiler_close_last_region();
 
 #ifdef GGML_USE_CPU_RISCV64_SPACEMIT
     ggml_backend_cpu_riscv64_spacemit_clear_numa_thread_affinity_threaded(state->ith);
@@ -3892,4 +3901,37 @@ void ggml_cpu_init(void) {
     }
 
     ggml_critical_section_end();
+}
+
+// Profiling support
+GGML_THREAD_LOCAL struct ggml_profile_open_region g_profile_open_region = {
+    .id     = 0,
+    .layer  = -1,
+    .region = -1,
+};
+
+
+void ggml_cpu_profiler_close_last_region() {
+    if (g_profile_open_region.id == 0) {
+        return;
+    }
+     fprintf(stderr,
+        "PROF CLOSE tid=%ld id=%llu layer=%d region=%d\n",
+        (long) gettid(),
+        (unsigned long long) g_profile_open_region.id,
+        g_profile_open_region.layer,
+        g_profile_open_region.region);
+    nvtxRangeEnd(g_profile_open_region.id);
+
+    g_profile_open_region.id = 0;
+    g_profile_open_region.layer = -1;
+    g_profile_open_region.region = -1;
+}
+
+void ggml_cpu_profiler_open_region(const char * name) {
+//    GGML_ASSERT(g_profile_open_region.id == 0);
+
+    g_profile_open_region.id = nvtxRangeStartA(name);
+    g_profile_open_region.layer  = -1;
+    g_profile_open_region.region = -1;
 }

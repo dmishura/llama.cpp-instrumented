@@ -124,6 +124,8 @@ llama_model_gemma3::graph<iswa>::graph(const llama_model & model, const llm_grap
         cur = build_norm(inpL, model.layers[il].attn_norm, NULL, LLM_NORM_RMS, il);
         cb(cur, "attn_norm", il);
 
+        cur = ggml_profiler_begin(ctx0, cur, il, GGML_PROFILE_ATTENTION);
+
         // self-attention
         {
             // compute Q and K and RoPE them
@@ -157,6 +159,7 @@ llama_model_gemma3::graph<iswa>::graph(const llama_model & model, const llm_grap
                     model.layers[il].wo, NULL, model.layers[il].wo_s,
                     Qcur, Kcur, Vcur, nullptr, nullptr, nullptr, 1.0f, il);
         }
+        
         if (il == n_layer - 1 && inp_out_ids) {
             cur  = ggml_get_rows(ctx0,  cur, inp_out_ids);
             inpL = ggml_get_rows(ctx0, inpL, inp_out_ids);
@@ -166,6 +169,8 @@ llama_model_gemma3::graph<iswa>::graph(const llama_model & model, const llm_grap
                 LLM_NORM_RMS, il);
         cb(cur, "attn_post_norm", il);
 
+        cur = ggml_profiler_end(ctx0, cur, il, GGML_PROFILE_ATTENTION);
+
         ggml_tensor * sa_out = ggml_add(ctx0, cur, inpL);
         cb(sa_out, "sa_out", il);
 
@@ -173,6 +178,8 @@ llama_model_gemma3::graph<iswa>::graph(const llama_model & model, const llm_grap
                 model.layers[il].ffn_norm, NULL,
                 LLM_NORM_RMS, il);
         cb(cur, "ffn_norm", il);
+
+        cur = ggml_profiler_begin(ctx0, cur, il, GGML_PROFILE_FFN);
 
         // feed-forward network
         {
@@ -184,6 +191,8 @@ llama_model_gemma3::graph<iswa>::graph(const llama_model & model, const llm_grap
                     LLM_FFN_GELU, LLM_FFN_PAR, il);
             cb(cur, "ffn_out", il);
         }
+        cur = ggml_profiler_end(ctx0, cur, il, GGML_PROFILE_FFN);
+
         cur = build_norm(cur,
                 model.layers[il].ffn_post_norm, NULL,
                 LLM_NORM_RMS, -1);

@@ -386,6 +386,7 @@ int llama_server(common_params & params, int argc, char ** argv) {
     //
     // Start the server
     //
+    fprintf(stderr, ">>> START THE SERVER\n");
 
     std::function<void()> clean_up;
 

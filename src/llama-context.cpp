@@ -11,6 +11,7 @@
 #include "llama-model.h"
 #include "llama-ext.h"
 #include "llama.h"
+#include <atomic>
 
 #include <cinttypes>
 #include <cmath>
@@ -704,6 +705,8 @@ void llama_context::synchronize() {
     }
 
     ggml_backend_sched_synchronize(sched.get());
+
+    fprintf(stderr, "GRAPH SYNC\n");
 
     // FIXME: if multiple single tokens are evaluated without a synchronization,
     // the stats will be added to the prompt evaluation stats
@@ -2472,7 +2475,47 @@ ggml_status llama_context::graph_compute(
         set_n_threads_fn.second(set_n_threads_fn.first, n_threads);
     }
 
+
+    static bool graph_printed = false;
+    static std::atomic<uint64_t> graph_id { 0 };
+    const uint64_t id = ++graph_id;
+    fprintf(stderr, "GRAPH %llu SUBMIT BEGIN\n",
+        (unsigned long long) id);
+/*
+    if (!graph_printed) {
+       fprintf(stderr, "\n========== GGML GRAPH ==========\n");
+const int n_nodes = ggml_graph_n_nodes(gf);
+
+for (int i = 0; i < n_nodes; ++i) {
+    const ggml_tensor * node = ggml_graph_node(gf, i);
+
+    if (node->op != GGML_OP_PROFILER_MARKER) {
+        continue;
+    }
+
+    ggml_profile_op_params p;
+    memcpy(&p, node->op_params, sizeof(p));
+
+    fprintf(stderr,
+            "%4d  %-24s  '%s'  layer=%d region=%d %s\n",
+            i,
+            ggml_op_name(node->op),
+            node->name,
+            p.layer,
+            p.region,
+            p.event == GGML_PROFILE_BEGIN ? "BEGIN" : "END");
+}
+
+       fprintf(stderr, "================================\n");
+    }
+*/
+//     graph_printed = true;
+    
+
     auto status = ggml_backend_sched_graph_compute_async(sched.get(), gf);
+    fprintf(stderr, "GRAPH %llu SUBMITTED status=%d\n",
+        (unsigned long long) id, status);
+    
     if (status != GGML_STATUS_SUCCESS) {
         LLAMA_LOG_ERROR("%s: ggml_backend_sched_graph_compute_async failed with error %d\n", __func__, status);
     }
@@ -4185,3 +4228,4 @@ llama_memory_breakdown llama_get_memory_breakdown(const struct llama_context * c
 llama_context * llama_get_ctx_other(struct llama_context * ctx) {
     return ctx->get_cparams().ctx_other;
 }
+

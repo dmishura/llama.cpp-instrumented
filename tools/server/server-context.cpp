@@ -2812,7 +2812,6 @@ private:
             SRV_INF("avg t_sampl       = %f ms\n", (double) t_sampl / n_sampl / 1000.0);
         }
 #endif
-
         // check if all slots are idle
         {
             bool all_idle = true;
@@ -2839,7 +2838,9 @@ private:
 
         try {
             scoped_timer t(t_pre_decode, n_pre_decode);
+            fprintf(stderr, "UPDATE_SLOTS: before pre_decode\n");
             pre_decode();
+            fprintf(stderr, "UPDATE_SLOTS: after pre_decode\n");
             batch.render();
         } catch (const std::exception & e) {
             SRV_ERR("pre_decode() failed: %s\n", e.what());
@@ -2866,7 +2867,6 @@ private:
 
             llama_set_embeddings(ctx_tgt, slot_batched->need_embd());
         }
-
         llama_batch batch_view;
         int32_t off_next = 0;
         int32_t n_batch = llama_n_batch(ctx_tgt);
@@ -2877,7 +2877,9 @@ private:
                 // TODO @ngxson : maybe handle n_batch == 1 here instead of inside decode()
 
                 batch_view = batch.get_view(off, n_tokens);
+                fprintf(stderr, "UPDATE_SLOTS: decode BEGIN\n");
                 bool ok = decode(n_batch, off, batch_view);
+                fprintf(stderr, "UPDATE_SLOTS: decode END\n");
 #ifdef DEBUG_TIMINGS
                 llama_synchronize(ctx_tgt);
 #endif
@@ -2900,7 +2902,9 @@ private:
 
             try {
                 scoped_timer t(t_post_decode, n_post_decode);
+                fprintf(stderr, "UPDATE_SLOTS: post_decode BEGIN\n");
                 post_decode(n_tokens, off, batch_view);
+                fprintf(stderr, "UPDATE_SLOTS: post_decode END\n");
             } catch (const std::exception & e) {
                 SRV_ERR("post_decode() failed: %s\n", e.what());
                 abort_all_slots("post_decode() failed: " + std::string(e.what()));
@@ -4011,6 +4015,7 @@ bool server_context::load_model(common_params & params) {
 
 void server_context::start_loop() {
     auto & params = impl->params_base;
+
     impl->queue_tasks.start_loop(params.sleep_idle_seconds * 1000);
 }
 

@@ -147,6 +147,22 @@ extern "C" {
     GGML_BACKEND_API void ggml_cpu_fp32_to_bf16(const float *, ggml_bf16_t *, int64_t);
     GGML_BACKEND_API void ggml_cpu_bf16_to_fp32(const ggml_bf16_t *, float *, int64_t);
 
+    // profiler stuff
+    #ifdef __cplusplus
+    #define GGML_THREAD_LOCAL thread_local
+    #else
+    #define GGML_THREAD_LOCAL _Thread_local
+    #endif
+    struct ggml_profile_open_region {
+    nvtxRangeId_t id;
+    int32_t layer;
+    int32_t region;
+    };
+    extern GGML_THREAD_LOCAL struct ggml_profile_open_region g_profile_open_region;
+
+    GGML_BACKEND_API void ggml_cpu_profiler_open_region(const char * name);
+    GGML_BACKEND_API void ggml_cpu_profiler_close_last_region(void);
 #ifdef __cplusplus
 }
 #endif
+

@@ -1098,9 +1098,10 @@ static const char * GGML_OP_NAME[GGML_OP_COUNT] = {
     "OPT_STEP_SGD",
 
     "GLU",
+    "PROF_MARKER",
 };
 
-static_assert(GGML_OP_COUNT == 101, "GGML_OP_COUNT != 101");
+static_assert(GGML_OP_COUNT == 102, "GGML_OP_COUNT != 102");
 
 static const char * GGML_OP_SYMBOL[GGML_OP_COUNT] = {
     "none",
@@ -1213,9 +1214,10 @@ static const char * GGML_OP_SYMBOL[GGML_OP_COUNT] = {
     "sgd(x)",
 
     "glu(x)",
+    "prof_marker(x)",
 };
 
-static_assert(GGML_OP_COUNT == 101, "GGML_OP_COUNT != 101");
+static_assert(GGML_OP_COUNT == 102, "GGML_OP_COUNT != 102");
 
 static_assert(GGML_OP_POOL_COUNT == 2, "GGML_OP_POOL_COUNT != 2");
 
@@ -8027,3 +8029,45 @@ bool ggml_threadpool_params_match(const struct ggml_threadpool_params * p0, cons
     if (p0->strict_cpu != p1->strict_cpu ) return false;
     return memcmp(p0->cpumask, p1->cpumask, GGML_MAX_N_THREADS) == 0;
 }
+
+struct ggml_tensor * ggml_profile_marker(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * src,
+        int32_t               layer,
+        enum ggml_profile_region region,
+        bool                  begin) {
+    struct ggml_tensor * result = ggml_view_tensor(ctx, src);
+
+    result->op     = GGML_OP_PROFILER_MARKER;
+    result->src[0] = src;
+
+
+    struct ggml_profile_op_params params = {
+    .layer  = layer,
+    .region = region,
+    .event  = begin ? GGML_PROFILE_BEGIN : 
+                      GGML_PROFILE_END,
+    };
+
+    ggml_set_op_params(result, &params, sizeof(params));
+
+    return result;
+}
+
+struct ggml_tensor * ggml_profiler_begin(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * src,
+        int32_t               layer,
+        enum ggml_profile_region region) {
+    return ggml_profile_marker(ctx, src, layer, region, true);
+}
+
+struct ggml_tensor * ggml_profiler_end(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * src,
+        int32_t               layer,
+        enum ggml_profile_region region) {
+    return ggml_profile_marker(ctx, src, layer, region, false);
+}
+
+

@@ -213,6 +213,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include <nvtx3/nvToolsExt.h>
+
 #define GGML_FILE_MAGIC   0x67676d6c // "ggml"
 #define GGML_FILE_VERSION 2
 
@@ -589,9 +591,31 @@ extern "C" {
         GGML_OP_OPT_STEP_SGD,
 
         GGML_OP_GLU,
-
+        GGML_OP_PROFILER_MARKER,
+        
         GGML_OP_COUNT,
+        
+
     };
+
+    enum ggml_profile_region {
+        GGML_PROFILE_ATTENTION = 0,
+        GGML_PROFILE_FFN       = 1,
+        GGML_PROFILE_KV_CACHE  = 2,
+        GGML_PROFILE_QKV       = 3,
+        GGML_PROFILE_BARRIER   = 4,
+    };
+
+    enum ggml_profile_event {
+        GGML_PROFILE_BEGIN = 0,
+        GGML_PROFILE_END   = 1,
+    };
+
+    struct ggml_profile_op_params {
+    int32_t event;
+    int32_t region;
+    int32_t layer;
+};
 
     enum ggml_unary_op {
         GGML_UNARY_OP_ABS,
@@ -882,6 +906,26 @@ extern "C" {
     GGML_API void ggml_set_output(struct ggml_tensor * tensor);
     GGML_API void ggml_set_param(struct ggml_tensor * tensor);
     GGML_API void ggml_set_loss(struct ggml_tensor * tensor);
+
+    
+   GGML_API struct ggml_tensor * ggml_profile_marker(
+           struct ggml_context * ctx,
+           struct ggml_tensor  * src,
+           int32_t               layer,
+           enum ggml_profile_region region,
+           bool                  begin);
+
+GGML_API struct ggml_tensor * ggml_profiler_begin(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * src,
+        int32_t               layer,
+        enum ggml_profile_region region);
+
+GGML_API struct ggml_tensor * ggml_profiler_end(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * src,
+        int32_t               layer,
+        enum ggml_profile_region region);
 
     //
     // operations on tensors with backpropagation

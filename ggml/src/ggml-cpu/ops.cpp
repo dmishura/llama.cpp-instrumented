@@ -12002,3 +12002,92 @@ void ggml_compute_forward_lightning_indexer(
         }
     }
 }
+
+
+const char * profile_region_name(int32_t region) {
+    switch (region) {
+        case GGML_PROFILE_ATTENTION: return "att";
+        case GGML_PROFILE_FFN:       return "ffn";
+        case GGML_PROFILE_KV_CACHE:  return "kv_cache";
+        case GGML_PROFILE_QKV:       return "qkv";
+        default:                     return "unknown";
+    }
+}
+
+static uint32_t ggml_profile_region_color(int32_t region) {
+    switch (region) {
+        case GGML_PROFILE_ATTENTION:
+            return 0xFF4C9AFF; // blue
+        case GGML_PROFILE_FFN:
+            return 0xFFFFA94D; // orange
+        default:
+            return 0xFFAAAAAA; // gray
+    }
+}
+
+void ggml_compute_forward_profiler_marker(
+        const ggml_compute_params * params,
+        ggml_tensor * dst) {
+
+    ggml_profile_op_params op_params;
+    memcpy(&op_params, dst->op_params, sizeof(op_params));
+
+    if (op_params.event == GGML_PROFILE_BEGIN) {
+//        GGML_ASSERT(g_profile_open_region.id == 0);
+        fprintf(stderr,
+        "PROF BEGIN tid=%ld layer=%d region=%d old_id=%llu\n",
+        (long) gettid(),
+        op_params.layer,
+        op_params.region,
+        (unsigned long long) g_profile_open_region.id);
+
+
+        char name[64];
+        ggml_profile_op_params op_params;
+        memcpy( &op_params, dst->op_params, sizeof(op_params));
+        snprintf(name, sizeof(name), "layer.%02d.%s",    op_params.layer, profile_region_name(op_params.region));
+
+        nvtxEventAttributes_t attr = {0};
+
+        attr.version = NVTX_VERSION;
+        attr.size    = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
+        attr.colorType = NVTX_COLOR_ARGB;
+        attr.color     = ggml_profile_region_color(op_params.region);
+        attr.messageType       = NVTX_MESSAGE_TYPE_ASCII;
+        attr.message.ascii     = name;
+        g_profile_open_region.id = nvtxRangeStartEx(&attr);
+//        g_profile_open_region.id =  nvtxRangeStartA(name);
+
+        fprintf(stderr,
+        "PROF OPEN  tid=%ld layer=%d region=%d id=%llu\n",
+        (long) gettid(),
+        op_params.layer,
+        op_params.region,
+        (unsigned long long) g_profile_open_region.id);
+
+        g_profile_open_region.layer  = op_params.layer;
+        g_profile_open_region.region = op_params.region;
+
+
+
+    } else {
+//        GGML_ASSERT(g_profile_open_region.id != 0);
+        fprintf(stderr,
+        "PROF END   tid=%ld layer=%d region=%d current_id=%llu "
+        "stored_layer=%d stored_region=%d\n",
+        (long) gettid(),
+        op_params.layer,
+        op_params.region,
+        (unsigned long long) g_profile_open_region.id,
+        g_profile_open_region.layer,
+        g_profile_open_region.region);
+
+        nvtxRangeEnd(g_profile_open_region.id);
+
+          g_profile_open_region.id = 0;
+          g_profile_open_region.layer = -1;
+          g_profile_open_region.region = -1;
+    }
+}
+
+
