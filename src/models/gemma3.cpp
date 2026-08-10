@@ -208,6 +208,7 @@ llama_model_gemma3::graph<iswa>::graph(const llama_model & model, const llm_grap
     }
     cur = inpL;
 
+
     cur = build_norm(cur,
             model.output_norm, NULL,
             LLM_NORM_RMS, -1);
@@ -215,6 +216,7 @@ llama_model_gemma3::graph<iswa>::graph(const llama_model & model, const llm_grap
     cb(cur, "result_norm", -1);
     res->t_embd = cur;
 
+    cur = ggml_profiler_begin(ctx0, cur, -1, GGML_PROFILE_LM);
     // lm_head
     cur = build_lora_mm(model.output, cur, model.output_s);
 
@@ -224,6 +226,7 @@ llama_model_gemma3::graph<iswa>::graph(const llama_model & model, const llm_grap
         cur = ggml_scale(ctx0, cur, hparams.f_final_logit_softcapping);
     }
 
+    cur = ggml_profiler_end(ctx0, cur, -1, GGML_PROFILE_LM);
     cb(cur, "result_output", -1);
     res->t_logits = cur;
 

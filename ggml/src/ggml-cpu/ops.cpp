@@ -12008,9 +12008,10 @@ const char * profile_region_name(int32_t region) {
     switch (region) {
         case GGML_PROFILE_ATTENTION: return "att";
         case GGML_PROFILE_FFN:       return "ffn";
-        case GGML_PROFILE_KV_CACHE:  return "kv_cache";
+        case GGML_PROFILE_LM:        return "lmh";
+        case GGML_PROFILE_KV_CACHE:  return "kvc";
         case GGML_PROFILE_QKV:       return "qkv";
-        default:                     return "unknown";
+        default:                     return "unk";
     }
 }
 
@@ -12020,6 +12021,8 @@ static uint32_t ggml_profile_region_color(int32_t region) {
             return 0xFF4C9AFF; // blue
         case GGML_PROFILE_FFN:
             return 0xFFFFA94D; // orange
+        case GGML_PROFILE_LM:
+            return 0xFF99ffa3; // light green
         default:
             return 0xFFAAAAAA; // gray
     }
@@ -12045,7 +12048,12 @@ void ggml_compute_forward_profiler_marker(
         char name[64];
         ggml_profile_op_params op_params;
         memcpy( &op_params, dst->op_params, sizeof(op_params));
-        snprintf(name, sizeof(name), "layer.%02d.%s",    op_params.layer, profile_region_name(op_params.region));
+
+        if (op_params.layer >= 0) {
+            snprintf(name, sizeof(name), "%s l:%02d", profile_region_name(op_params.region), op_params.layer);
+        } else {
+            snprintf(name, sizeof(name), "%s",    profile_region_name(op_params.region));
+        }   
 
         nvtxEventAttributes_t attr = {0};
 

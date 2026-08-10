@@ -604,6 +604,7 @@ extern "C" {
         GGML_PROFILE_KV_CACHE  = 2,
         GGML_PROFILE_QKV       = 3,
         GGML_PROFILE_BARRIER   = 4,
+        GGML_PROFILE_LM        = 5,
     };
 
     enum ggml_profile_event {
