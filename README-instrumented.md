@@ -31,7 +31,6 @@ execution regions, for example:
 - Transformer layers
 - Attention blocks
 - Feed-forward network (FFN) blocks
-- Barrier time
 
 When the graph is executed, these nodes generate corresponding profiler regions.
 This makes it possible to correlate low-level profiler data with the logical
@@ -62,20 +61,6 @@ This ensures that profiler ranges do not leak across graph executions.
 
 ---
 
-## Region lifetime
-
-Profiling regions are opened and closed by marker nodes executed as part of the
-GGML graph.
-
-Because graph execution may finish without encountering an explicit closing
-marker for every currently open region, the synchronization point acts as a
-final boundary: any regions that are still open when synchronization is reached
-are closed there.
-
-This ensures that profiler ranges do not leak across graph executions.
-
----
-
 ## Interface / screenshots
 
 ### Overview
@@ -94,7 +79,7 @@ This repository is based on the upstream `llama.cpp` project and keeps it as the
 
 Custom changes in this fork currently include:
 
-- instrumentation hooks;
+- computation graph based instrumentation;
 - improved region naming;
 - profiling-oriented modifications for experimentation.
 
