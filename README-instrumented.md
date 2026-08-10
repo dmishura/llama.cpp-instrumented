@@ -80,11 +80,11 @@ This ensures that profiler ranges do not leak across graph executions.
 
 ### Overview
 
-![UI overview](docs/images/ui-overview.png)
+![UI overview](images/ui-overview.png)
 
 ### Profile markers
 
-![Profile details](docs/images/ui-profile-view.png)
+![Profile details](images/ui-profile-view.png)
 
 ---
 
