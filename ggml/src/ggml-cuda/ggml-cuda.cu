@@ -68,6 +68,7 @@
 #include "ggml-cuda/fill.cuh"
 #include "ggml-cuda/lightning-indexer.cuh"
 #include "ggml.h"
+#include "ggml-profile.h"
 
 #include <algorithm>
 #include <array>
@@ -2053,8 +2054,108 @@ static void ggml_cuda_mul_mat_id(ggml_backend_cuda_context & ctx, ggml_tensor * 
         nb1, nb2, nb3, stream);
 }
 
+const char * profile_region_name(int32_t region) {
+    switch (region) {
+        case GGML_PROFILE_ATTENTION: return "att";
+        case GGML_PROFILE_FFN:       return "ffn";
+        case GGML_PROFILE_LM:        return "lmh";
+        case GGML_PROFILE_KV_CACHE:  return "kvc";
+        default:                     return "unk";
+    }
+}
+
+static uint32_t ggml_profile_region_color(int32_t region) {
+    switch (region) {
+        case GGML_PROFILE_ATTENTION:
+            return 0xFF4C9AFF; // blue
+        case GGML_PROFILE_FFN:
+            return 0xFFFFA94D; // orange
+        case GGML_PROFILE_LM:
+            return 0xFF99ffa3; // light green
+        default:
+            return 0xFFAAAAAA; // gray
+    }
+}
+
+
+
+static void ggml_host_profiler_marker(
+    ggml_backend_cuda_context & ctx,
+    struct ggml_tensor * dst) {
+
+    GGML_UNUSED(ctx);
+
+     ggml_profile_op_params op_params;
+    memcpy(&op_params, dst->op_params, sizeof(op_params));
+
+    if (op_params.event == GGML_PROFILE_BEGIN) {
+//        GGML_ASSERT(g_profile_open_region.id == 0);
+        fprintf(stderr,
+        "PROF BEGIN tid=%ld layer=%d region=%d old_id=%llu\n",
+        (long) gettid(),
+        op_params.layer,
+        op_params.region,
+        (unsigned long long) g_profile_open_region.id);
+
+
+        char name[64];
+        ggml_profile_op_params op_params;
+        memcpy( &op_params, dst->op_params, sizeof(op_params));
+
+        if (op_params.layer >= 0) {
+            snprintf(name, sizeof(name), "%s l:%02d", profile_region_name(op_params.region), op_params.layer);
+        } else {
+            snprintf(name, sizeof(name), "%s",    profile_region_name(op_params.region));
+        }   
+
+        nvtxEventAttributes_t attr = {0};
+
+        attr.version = NVTX_VERSION;
+        attr.size    = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
+        attr.colorType = NVTX_COLOR_ARGB;
+        attr.color     = ggml_profile_region_color(op_params.region);
+        attr.messageType       = NVTX_MESSAGE_TYPE_ASCII;
+        attr.message.ascii     = name;
+        g_profile_open_region.id = nvtxRangeStartEx(&attr);
+//        g_profile_open_region.id =  nvtxRangeStartA(name);
+
+        fprintf(stderr,
+        "PROF OPEN  tid=%ld layer=%d region=%d id=%llu\n",
+        (long) gettid(),
+        op_params.layer,
+        op_params.region,
+        (unsigned long long) g_profile_open_region.id);
+
+        g_profile_open_region.layer  = op_params.layer;
+        g_profile_open_region.region = op_params.region;
+
+
+
+    } else {
+//        GGML_ASSERT(g_profile_open_region.id != 0);
+        fprintf(stderr,
+        "PROF END   tid=%ld layer=%d region=%d current_id=%llu "
+        "stored_layer=%d stored_region=%d\n",
+        (long) gettid(),
+        op_params.layer,
+        op_params.region,
+        (unsigned long long) g_profile_open_region.id,
+        g_profile_open_region.layer,
+        g_profile_open_region.region);
+
+        nvtxRangeEnd(g_profile_open_region.id);
+
+          g_profile_open_region.id = 0;
+          g_profile_open_region.layer = -1;
+          g_profile_open_region.region = -1;
+    }
+}
+
 static bool ggml_cuda_compute_forward(ggml_backend_cuda_context & ctx, struct ggml_tensor * dst) {
     switch (dst->op) {
+        case GGML_OP_PROFILER_MARKER:
+            ggml_host_profiler_marker(ctx, dst);
+            break;
         case GGML_OP_ARGMAX:
             ggml_cuda_argmax(ctx, dst);
             break;
@@ -4909,6 +5010,8 @@ static bool ggml_backend_cuda_device_supports_op(ggml_backend_dev_t dev, const g
                     return false;
             }
             break;
+        case GGML_OP_PROFILER_MARKER:
+            return true;
         case GGML_OP_MUL_MAT:
         case GGML_OP_MUL_MAT_ID:
             {
@@ -5559,5 +5662,39 @@ ggml_backend_t ggml_backend_cuda_init(int device) {
 
     return cuda_backend;
 }
+
+GGML_THREAD_LOCAL struct ggml_profile_open_region g_profile_open_region = {
+    .id     = 0,
+    .layer  = -1,
+    .region = -1,
+};
+
+
+void ggml_cuda_profiler_close_last_region() {
+    if (g_profile_open_region.id == 0) {
+        return;
+    }
+     fprintf(stderr,
+        "PROF CLOSE tid=%ld id=%llu layer=%d region=%d\n",
+        (long) gettid(),
+        (unsigned long long) g_profile_open_region.id,
+        g_profile_open_region.layer,
+        g_profile_open_region.region);
+    nvtxRangeEnd(g_profile_open_region.id);
+
+    g_profile_open_region.id = 0;
+    g_profile_open_region.layer = -1;
+    g_profile_open_region.region = -1;
+}
+
+void ggml_cuda_profiler_open_region(const char * name) {
+//    GGML_ASSERT(g_profile_open_region.id == 0);
+
+    g_profile_open_region.id = nvtxRangeStartA(name);
+    g_profile_open_region.layer  = -1;
+    g_profile_open_region.region = -1;
+}
+
+
 
 GGML_BACKEND_DL_IMPL(ggml_backend_cuda_reg)

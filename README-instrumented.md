@@ -13,7 +13,24 @@ Any regions still open when graph execution reaches a synchronization point are
 closed there, preventing profiling ranges from leaking into subsequent graph
 executions.
 
-Currently, this instrumentation is implemented for **Gemma 3** only.
+Currently, this instrumentation is implemented for **Gemma 3** and **Llama (3)** only.
+
+---
+
+## Backend support
+
+Profiling marker nodes are currently supported by:
+
+- CPU backend
+- CUDA backend
+
+For CUDA execution, marker nodes are handled by the host-side CUDA backend.
+This allows model-level profiling regions such as Attention and FFN to be
+correlated with CUDA API activity and GPU kernel execution in profilers such
+as NVIDIA Nsight Systems.
+
+CUDA Graph execution is also supported. Profiling markers do not require
+CUDA Graphs to be disabled.
 
 ---
 

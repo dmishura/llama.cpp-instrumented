@@ -134,6 +134,7 @@ llama_model_llama::graph<embed>::graph(const llama_model & model, const llm_grap
                 LLM_NORM_RMS, il);
         cb(cur, "attn_norm", il);
 
+        cur = ggml_profiler_begin(ctx0, cur, il, GGML_PROFILE_ATTENTION);
         // self-attention
         {
             // rope freq factors for llama3; may return nullptr for llama2 and other models
@@ -171,6 +172,8 @@ llama_model_llama::graph<embed>::graph(const llama_model & model, const llm_grap
                     Qcur, Kcur, Vcur, nullptr, nullptr, nullptr, kq_scale, il);
             cb(cur, "attn_out", il);
         }
+        cur = ggml_profiler_end(ctx0, cur, il, GGML_PROFILE_ATTENTION);
+        cur = ggml_profiler_begin(ctx0, cur, il, GGML_PROFILE_FFN);
         if (il == n_layer - 1 && inp_out_ids) {
             cur   = ggml_get_rows(ctx0,   cur, inp_out_ids);
             inpSA = ggml_get_rows(ctx0, inpSA, inp_out_ids);
@@ -217,6 +220,7 @@ llama_model_llama::graph<embed>::graph(const llama_model & model, const llm_grap
                     model.layers[il].ffn_down_exps_s);
             cb(cur, "ffn_moe_out", il);
         }
+        cur = ggml_profiler_end(ctx0, cur, il, GGML_PROFILE_FFN);
         cur = ggml_add(ctx0, cur, ffn_inp);
         cb(cur, "ffn_out", il);
 
@@ -236,8 +240,11 @@ llama_model_llama::graph<embed>::graph(const llama_model & model, const llm_grap
     res->t_embd = cur;
 
     if constexpr (!embed) {
+        cur = ggml_profiler_begin(ctx0, cur, -1, GGML_PROFILE_LM);
         // lm_head
         cur = build_lora_mm(model.output, cur, model.output_s);
+        
+        cur = ggml_profiler_end(ctx0, cur, -1, GGML_PROFILE_LM);
 
         cb(cur, "result_output", -1);
         res->t_logits = cur;
