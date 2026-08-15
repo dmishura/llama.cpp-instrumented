@@ -88,6 +88,9 @@ This ensures that profiler ranges do not leak across graph executions.
 
 ![Profile details](images/ui-profile-view.png)
 
+### CUDA events with instrumentation mix
+![CUDA events](images/ui-cuda.png)
+
 ---
 
 ## What is changed compared to upstream
