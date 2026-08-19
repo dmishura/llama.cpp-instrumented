@@ -91,6 +91,10 @@ This ensures that profiler ranges do not leak across graph executions.
 ### CUDA events with instrumentation mix
 ![CUDA events](images/ui-cuda.png)
 
+### Vtune example of "Task" view
+![Vtune example](images/vtune-example.png)
+
+
 ---
 
 ## What is changed compared to upstream
