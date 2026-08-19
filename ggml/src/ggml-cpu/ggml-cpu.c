@@ -3906,25 +3906,24 @@ void ggml_cpu_init(void) {
 
 // Profiling support
 GGML_THREAD_LOCAL struct ggml_profile_open_region g_profile_open_region = {
-    .id     = 0,
+//    .id,
     .layer  = -1,
     .region = -1,
 };
 
 
 void ggml_cpu_profiler_close_last_region() {
-    if (g_profile_open_region.id == 0) {
+    if (!rntp_range_is_open(g_profile_open_region.id)) {
         return;
     }
-     fprintf(stderr,
-        "PROF CLOSE tid=%ld id=%llu layer=%d region=%d\n",
+    fprintf(stderr,
+        "PROF CLOSE tid=%ld layer=%d region=%d\n",
         (long) gettid(),
-        (unsigned long long) g_profile_open_region.id,
         g_profile_open_region.layer,
         g_profile_open_region.region);
-    nvtxRangeEnd(g_profile_open_region.id);
 
-    g_profile_open_region.id = 0;
+    rntp_range_end(&g_profile_open_region.id);
+
     g_profile_open_region.layer = -1;
     g_profile_open_region.region = -1;
 }
@@ -3932,7 +3931,7 @@ void ggml_cpu_profiler_close_last_region() {
 void ggml_cpu_profiler_open_region(const char * name) {
 //    GGML_ASSERT(g_profile_open_region.id == 0);
 
-    g_profile_open_region.id = nvtxRangeStartA(name);
+    g_profile_open_region.id = rntp_range_start(name);
     g_profile_open_region.layer  = -1;
     g_profile_open_region.region = -1;
 }

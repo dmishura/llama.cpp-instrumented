@@ -213,8 +213,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include <nvtx3/nvToolsExt.h>
-
 #define GGML_FILE_MAGIC   0x67676d6c // "ggml"
 #define GGML_FILE_VERSION 2
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14...3.28) # for add_link_options and implicit target directories.
 project("llama.cpp" C CXX)
 include(CheckIncludeFileCXX)
-include_directories("/opt/nvidia/nsight-systems/2025.3.2/target-linux-x64/nvtx/include/")
+#include_directories("/opt/nvidia/nsight-systems/2025.3.2/target-linux-x64/nvtx/include/")
 
 ### llama.cpp version
 set(LLAMA_VERSION_MAJOR 0)
@@ -201,6 +201,8 @@ license_add_file("llama.cpp" "LICENSE")
 #
 # 3rd-party
 #
+
+include(cmake/RangeTap.cmake)
 
 if (LLAMA_USE_SYSTEM_GGML)
     message(STATUS "Using system-provided libggml, skipping ggml build")

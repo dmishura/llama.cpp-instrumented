@@ -68,7 +68,9 @@
 #include "ggml-cuda/fill.cuh"
 #include "ggml-cuda/lightning-indexer.cuh"
 #include "ggml.h"
+
 #include "ggml-profile.h"
+#include <unistd.h>
 
 #include <algorithm>
 #include <array>
@@ -2091,11 +2093,10 @@ static void ggml_host_profiler_marker(
     if (op_params.event == GGML_PROFILE_BEGIN) {
 //        GGML_ASSERT(g_profile_open_region.id == 0);
         fprintf(stderr,
-        "PROF BEGIN tid=%ld layer=%d region=%d old_id=%llu\n",
+        "PROF BEGIN tid=%ld layer=%d region=%d\n",
         (long) gettid(),
         op_params.layer,
-        op_params.region,
-        (unsigned long long) g_profile_open_region.id);
+        op_params.region);
 
 
         char name[64];
@@ -2108,46 +2109,31 @@ static void ggml_host_profiler_marker(
             snprintf(name, sizeof(name), "%s",    profile_region_name(op_params.region));
         }   
 
-        nvtxEventAttributes_t attr = {0};
-
-        attr.version = NVTX_VERSION;
-        attr.size    = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
-        attr.colorType = NVTX_COLOR_ARGB;
-        attr.color     = ggml_profile_region_color(op_params.region);
-        attr.messageType       = NVTX_MESSAGE_TYPE_ASCII;
-        attr.message.ascii     = name;
-        g_profile_open_region.id = nvtxRangeStartEx(&attr);
-//        g_profile_open_region.id =  nvtxRangeStartA(name);
+        g_profile_open_region.id = rntp_range_start_ex(name, ggml_profile_region_color(op_params.region));
 
         fprintf(stderr,
-        "PROF OPEN  tid=%ld layer=%d region=%d id=%llu\n",
+        "PROF OPEN  tid=%ld layer=%d region=%d\n",
         (long) gettid(),
         op_params.layer,
-        op_params.region,
-        (unsigned long long) g_profile_open_region.id);
-
+        op_params.region);
         g_profile_open_region.layer  = op_params.layer;
         g_profile_open_region.region = op_params.region;
-
-
 
     } else {
 //        GGML_ASSERT(g_profile_open_region.id != 0);
         fprintf(stderr,
-        "PROF END   tid=%ld layer=%d region=%d current_id=%llu "
+        "PROF END   tid=%ld layer=%d region=%d "
         "stored_layer=%d stored_region=%d\n",
         (long) gettid(),
         op_params.layer,
         op_params.region,
-        (unsigned long long) g_profile_open_region.id,
         g_profile_open_region.layer,
         g_profile_open_region.region);
 
-        nvtxRangeEnd(g_profile_open_region.id);
+        rntp_range_end(&g_profile_open_region.id);
 
-          g_profile_open_region.id = 0;
-          g_profile_open_region.layer = -1;
-          g_profile_open_region.region = -1;
+        g_profile_open_region.layer = -1;
+        g_profile_open_region.region = -1;
     }
 }
 
@@ -5664,25 +5650,23 @@ ggml_backend_t ggml_backend_cuda_init(int device) {
 }
 
 GGML_THREAD_LOCAL struct ggml_profile_open_region g_profile_open_region = {
-    .id     = 0,
     .layer  = -1,
     .region = -1,
 };
 
 
 void ggml_cuda_profiler_close_last_region() {
-    if (g_profile_open_region.id == 0) {
+    if (!rntp_range_is_open(g_profile_open_region.id)) {
         return;
     }
-     fprintf(stderr,
-        "PROF CLOSE tid=%ld id=%llu layer=%d region=%d\n",
+    fprintf(stderr,
+        "PROF CLOSE tid=%ld layer=%d region=%d\n",
         (long) gettid(),
-        (unsigned long long) g_profile_open_region.id,
         g_profile_open_region.layer,
         g_profile_open_region.region);
-    nvtxRangeEnd(g_profile_open_region.id);
 
-    g_profile_open_region.id = 0;
+    rntp_range_end(&g_profile_open_region.id);
+
     g_profile_open_region.layer = -1;
     g_profile_open_region.region = -1;
 }
@@ -5690,11 +5674,9 @@ void ggml_cuda_profiler_close_last_region() {
 void ggml_cuda_profiler_open_region(const char * name) {
 //    GGML_ASSERT(g_profile_open_region.id == 0);
 
-    g_profile_open_region.id = nvtxRangeStartA(name);
+    g_profile_open_region.id = rntp_range_start(name);
     g_profile_open_region.layer  = -1;
     g_profile_open_region.region = -1;
 }
-
-
 
 GGML_BACKEND_DL_IMPL(ggml_backend_cuda_reg)

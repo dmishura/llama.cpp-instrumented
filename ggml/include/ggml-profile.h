@@ -2,6 +2,7 @@
 
 #include "ggml.h"
 #include "ggml-backend.h"
+#include <rangetap/rangetap.h>
 
 // profiler stuff
 
@@ -13,7 +14,7 @@
 #endif
 
 struct ggml_profile_open_region {
-nvtxRangeId_t id;
+RNTP_RangeHandle id;
 int32_t layer;
 int32_t region;
 };

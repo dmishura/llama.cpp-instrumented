@@ -208,6 +208,11 @@ add_library(ggml-base
             ggml-quants.h
             gguf.cpp)
 
+target_link_libraries(
+    ggml-base
+    PUBLIC RangeTap::RangeTap
+)
+
 set_target_properties(ggml-base PROPERTIES
     VERSION ${GGML_VERSION}
     SOVERSION ${GGML_VERSION_MAJOR}
