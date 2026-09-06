@@ -603,18 +603,21 @@ extern "C" {
         GGML_PROFILE_QKV       = 3,
         GGML_PROFILE_BARRIER   = 4,
         GGML_PROFILE_LM        = 5,
+        GGML_PROFILE_ROUTE     = 6,
     };
 
     enum ggml_profile_event {
         GGML_PROFILE_BEGIN = 0,
         GGML_PROFILE_END   = 1,
+        GGML_PROFILE_PUSH  = 2,
+        GGML_PROFILE_POP   = 3,   
     };
 
     struct ggml_profile_op_params {
-    int32_t event;
-    int32_t region;
-    int32_t layer;
-};
+        int32_t event;
+        int32_t region;
+        int32_t layer;
+    };
 
     enum ggml_unary_op {
         GGML_UNARY_OP_ABS,
@@ -907,24 +910,34 @@ extern "C" {
     GGML_API void ggml_set_loss(struct ggml_tensor * tensor);
 
     
-   GGML_API struct ggml_tensor * ggml_profile_marker(
+    GGML_API struct ggml_tensor * ggml_profile_marker(
            struct ggml_context * ctx,
            struct ggml_tensor  * src,
            int32_t               layer,
            enum ggml_profile_region region,
-           bool                  begin);
+           enum ggml_profile_event event);
 
-GGML_API struct ggml_tensor * ggml_profiler_begin(
+    GGML_API struct ggml_tensor * ggml_profiler_begin(
         struct ggml_context * ctx,
         struct ggml_tensor  * src,
         int32_t               layer,
         enum ggml_profile_region region);
 
-GGML_API struct ggml_tensor * ggml_profiler_end(
+    GGML_API struct ggml_tensor * ggml_profiler_end(
         struct ggml_context * ctx,
         struct ggml_tensor  * src,
         int32_t               layer,
         enum ggml_profile_region region);
+
+    GGML_API struct ggml_tensor * ggml_profiler_push(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * src,
+        int32_t               layer,
+        enum ggml_profile_region region);
+
+    GGML_API struct ggml_tensor * ggml_profiler_pop(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * src);
 
     //
     // operations on tensors with backpropagation

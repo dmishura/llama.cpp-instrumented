@@ -12012,6 +12012,7 @@ const char * profile_region_name(int32_t region) {
         case GGML_PROFILE_FFN:       return "ffn";
         case GGML_PROFILE_LM:        return "lmh";
         case GGML_PROFILE_KV_CACHE:  return "kvc";
+        case GGML_PROFILE_ROUTE:     return "ROUT";
         default:                     return "unk";
     }
 }
@@ -12024,6 +12025,8 @@ static uint32_t ggml_profile_region_color(int32_t region) {
             return 0xFFFFA94D; // orange
         case GGML_PROFILE_LM:
             return 0xFF99ffa3; // light green
+        case GGML_PROFILE_ROUTE:
+            return 0xFFFF6B6B; // red
         default:
             return 0xFFAAAAAA; // gray
     }
@@ -12036,57 +12039,52 @@ void ggml_compute_forward_profiler_marker(
     ggml_profile_op_params op_params;
     memcpy(&op_params, dst->op_params, sizeof(op_params));
 
-    if (op_params.event == GGML_PROFILE_BEGIN) {
-
-        fprintf(stderr,
-        "PROF BEGIN tid=%ld layer=%d region=%d\n",
-        (long) gettid(),
-        op_params.layer,
-        op_params.region);
-
-        char name[64];
-        ggml_profile_op_params op_params;
-        memcpy( &op_params, dst->op_params, sizeof(op_params));
-
+char name[64];
+switch (op_params.event) {
+    case GGML_PROFILE_BEGIN: {
         if (op_params.layer >= 0) {
-            snprintf(name, sizeof(name), "%s l:%02d", profile_region_name(op_params.region), op_params.layer);
+            snprintf(name, sizeof(name),
+                     "%s l:%02d",
+                     profile_region_name(op_params.region),
+                     op_params.layer);
         } else {
-            snprintf(name, sizeof(name), "%s",    profile_region_name(op_params.region));
-        }   
-
-        /*nvtxEventAttributes_t attr = {0};
-
-        attr.version = NVTX_VERSION;
-        attr.size    = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
-        attr.colorType = NVTX_COLOR_ARGB;
-        attr.color     = ggml_profile_region_color(op_params.region);
-        attr.messageType       = NVTX_MESSAGE_TYPE_ASCII;
-        attr.message.ascii     = name;
-        g_profile_open_region.id = nvtxRangeStartEx(&attr); */
-
+            snprintf(name, sizeof(name),
+                     "%s",
+                     profile_region_name(op_params.region));
+        }
         g_profile_open_region.id =  rntp_range_start_ex(name, ggml_profile_region_color(op_params.region));
-
-
-        fprintf(stderr, "PROF OPEN  tid=%ld layer=%d region=%d\n", (long) gettid(), op_params.layer, op_params.region);
-
         g_profile_open_region.layer  = op_params.layer;
         g_profile_open_region.region = op_params.region;
+    } break;
 
-    } else {
-//        GGML_ASSERT(g_profile_open_region.id != 0);
-        fprintf(stderr,
-        "PROF END   tid=%ld layer=%d region=%d"
-        "stored_layer=%d stored_region=%d\n",
-        (long) gettid(),
-        op_params.layer,
-        op_params.region,
-        g_profile_open_region.layer,
-        g_profile_open_region.region);
-
+    case GGML_PROFILE_END:
         rntp_range_end(&g_profile_open_region.id);
-        g_profile_open_region.layer = -1;
+        g_profile_open_region.layer  = -1;
         g_profile_open_region.region = -1;
-    }
+        break;
+
+    case GGML_PROFILE_PUSH: {
+        if (op_params.layer >= 0) {
+            snprintf(name, sizeof(name),
+                     "%s l:%02d",
+                     profile_region_name(op_params.region),
+                     op_params.layer);
+        } else {
+            snprintf(name, sizeof(name),
+                     "%s",
+                     profile_region_name(op_params.region));
+        }
+        RNTP_PushMarkEx(name, ggml_profile_region_color(op_params.region));
+    }  break;
+
+    case GGML_PROFILE_POP:
+        RNTP_PopMark();
+        break;
+
+    default:
+        GGML_ABORT("unknown profiler event: %d", op_params.event);
+}
+
 }
 
 

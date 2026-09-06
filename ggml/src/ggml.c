@@ -8035,9 +8035,9 @@ struct ggml_tensor * ggml_profile_marker(
         struct ggml_tensor  * src,
         int32_t               layer,
         enum ggml_profile_region region,
-        bool                  begin) {
-    struct ggml_tensor * result = ggml_view_tensor(ctx, src);
+        enum ggml_profile_event event) {
 
+    struct ggml_tensor * result = ggml_view_tensor(ctx, src);
     result->op     = GGML_OP_PROFILER_MARKER;
     result->src[0] = src;
 
@@ -8045,8 +8045,7 @@ struct ggml_tensor * ggml_profile_marker(
     struct ggml_profile_op_params params = {
     .layer  = layer,
     .region = region,
-    .event  = begin ? GGML_PROFILE_BEGIN : 
-                      GGML_PROFILE_END,
+    .event  = event,
     };
 
     ggml_set_op_params(result, &params, sizeof(params));
@@ -8059,7 +8058,7 @@ struct ggml_tensor * ggml_profiler_begin(
         struct ggml_tensor  * src,
         int32_t               layer,
         enum ggml_profile_region region) {
-    return ggml_profile_marker(ctx, src, layer, region, true);
+    return ggml_profile_marker(ctx, src, layer, region, GGML_PROFILE_BEGIN);
 }
 
 struct ggml_tensor * ggml_profiler_end(
@@ -8067,7 +8066,22 @@ struct ggml_tensor * ggml_profiler_end(
         struct ggml_tensor  * src,
         int32_t               layer,
         enum ggml_profile_region region) {
-    return ggml_profile_marker(ctx, src, layer, region, false);
+    return ggml_profile_marker(ctx, src, layer, region, GGML_PROFILE_END);
 }
 
 
+struct ggml_tensor * ggml_profiler_push(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * src,
+        int32_t               layer,
+        enum ggml_profile_region region) {
+
+    return ggml_profile_marker(ctx, src, layer, region, GGML_PROFILE_PUSH);
+}
+
+struct ggml_tensor * ggml_profiler_pop(
+        struct ggml_context * ctx,
+        struct ggml_tensor  * src) {
+
+    return ggml_profile_marker(ctx, src, -1, -1, GGML_PROFILE_POP);
+}

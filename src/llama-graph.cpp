@@ -23,6 +23,8 @@
 #include <string>
 #include <unordered_set>
 
+#include <rangetap/rangetap.h>
+
 // dedup helpers
 
 static ggml_tensor * build_attn_inp_kq_mask(
@@ -1942,8 +1944,11 @@ ggml_tensor * llm_graph_context::build_moe_ffn(
     const bool weight_before_ffn = arch == LLM_ARCH_LLAMA4; // for llama4, we apply the sigmoid-ed weights before the FFN
 
     ggml_tensor * logits = nullptr;
+    
+    cur = ggml_profiler_push(ctx0, cur, il, GGML_PROFILE_ROUTE);
+    printf("llm_graph_context::build_moe_ffn: il=%d, n_expert=%lld, n_expert_used=%lld, n_tokens=%lld\n", il, n_expert, n_expert_used, n_tokens);
 
-    if (probs_in == nullptr) {
+    if (probs_in == nullptr) { 
         logits = build_lora_mm(gate_inp, cur); // [n_expert, n_tokens]
         if (gating_op == LLAMA_EXPERT_GATING_FUNC_TYPE_SQRT_SOFTPLUS) {
             ggml_mul_mat_set_prec(logits, GGML_PREC_F32);
@@ -2088,6 +2093,8 @@ ggml_tensor * llm_graph_context::build_moe_ffn(
     ggml_tensor * up = nullptr;
     ggml_tensor * experts = nullptr;
 
+    selected_experts = ggml_profiler_pop(ctx0, selected_experts);
+    
     if (gate_up_exps) {
         // merged gate_up path: one mul_mat_id, then split into gate and up views
         ggml_tensor * gate_up = build_lora_mm_id(gate_up_exps, cur, selected_experts, up_exps_s); // [n_ff*2, n_expert_used, n_tokens]
